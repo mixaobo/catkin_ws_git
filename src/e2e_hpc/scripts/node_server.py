@@ -37,7 +37,7 @@ def make_payload(alive_counter):
         "-": alive_counter,
         "Connection": {
             "VehicleStatus": getattr(veh, "status", "Unknown") if veh else "Unknown",
-            "BleStatus": getattr(veh, "ble_status", "Unknown") if veh else "Unknown",
+            "BleStatus": getattr(loc, "ble_status", "Unknown") if loc else "Unknown",
             "UwbStatus": getattr(veh, "uwb_status", "Ranging") if veh else "Ranging",
         },
         "Door": {
