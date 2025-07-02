@@ -8,7 +8,7 @@ from e2e_hpc.msg import CustomMsg_Ranging
 HOST = '192.168.8.70' # Listen on all interfaces (replace with anchor IP if needed)
 PORT = 100      # Port to listen on (replace with anchor port if needed)
 
-def parse_string_data(data):
+def parse_string_data(data, ble_status):
     """
     Parse the received string data in the format
     Returns a dictionary with parsed values or None if parsing fails.
@@ -17,7 +17,7 @@ def parse_string_data(data):
         fields = data.split('/')
         print(fields)
         parsed_data = {
-            'ble_status': "Connected",
+            'ble_status': ble_status,
             'anchor_system_time': fields[-3],
             'anchor_received_time': fields[-1],
             'firstPath_power': float(fields[-8]),
@@ -57,6 +57,9 @@ def start_node_ethernet():
         srv.setblocking(False)
         rospy.loginfo("Node ethernet is listening on {}:{}".format(HOST, PORT))
 
+        last_ranging_time = None
+        ble_status = "Disconnected"
+
         # Main server loop: accept new connections
         while not rospy.is_shutdown():
             try:
@@ -79,10 +82,13 @@ def start_node_ethernet():
                                 try:
                                     CurrentSystemTime = rospy.Time.now()
                                     ID = line.decode('utf-8').strip().split('/')[0]
-                                    parsed_data = parse_string_data(line.decode('utf-8').strip())
+                                    parsed_data = parse_string_data(line.decode('utf-8').strip(), ble_status)
+                                    ble_status = "Connected"
+                                    last_ranging_time = CurrentSystemTime
+
                                     if(float(ID) == 4.0):
                                         print(parsed_data)
-                                        if parsed_data:
+                                        if parsed_data:                                            
                                             # Log out the system_time for manual checking
                                             #rospy.loginfo("Time received from {}: {}".format(addr, parsed_data.get('system_time')))
                                             
@@ -101,6 +107,21 @@ def start_node_ethernet():
                         else:
                             #return NULL due to setblocking(false)
                             break
+                        # Check for BLE timeout and publish if status changes to Disconnected
+                        if last_ranging_time is not None and (rospy.Time.now() - last_ranging_time) > 0.288:
+                            ble_status = "Disconnected"
+                            last_ranging_time = None
+                        if ble_status != prev_ble_status and ble_status == "Disconnected":
+                            # Publish a message indicating BLE is disconnected
+                            msg = CustomMsg_Ranging()
+                            msg.ble_status = "Disconnected"
+                            msg.hpc_system_time = rospy.Time.now().to_nsec()
+                            # Set other fields to default/zero/None as needed
+                            ranging_pub.publish(msg)
+                            prev_ble_status = ble_status
+                        elif ble_status != prev_ble_status:
+                            prev_ble_status = ble_status
+
                     except BlockingIOError:
                         #BlockingIOError exception due to no data from conn.recv
                         pass           
