@@ -155,7 +155,7 @@ def Ranging_callback_all(ekf_class_driver, msg_driver, ekf_class_passenger, msg_
     d_anchor = 16 #change later
     # driver 
     print("-------------------------------")
-    # print("Driver value: {} / {}".format(msg_driver.distance, msg_driver.aoa))
+    print("Driver value: {} / {}".format(msg_driver.distance, msg_driver.aoa))
     predict_distance_driver = msg_driver.distance
     predict_angle_driver = msg_driver.aoa
     # time_driver = msg_driver.hpc_system_time
@@ -167,6 +167,7 @@ def Ranging_callback_all(ekf_class_driver, msg_driver, ekf_class_passenger, msg_
 
 
     #passenger
+    print("Passenger value: {} / {}".format(msg_driver.distance, msg_driver.aoa))
     predict_distance_passenger = msg_passenger.distance
     predict_angle_passenger = msg_passenger.aoa
     # time_passenger = msg_passenger.hpc_system_time
@@ -223,7 +224,7 @@ def Ranging_callback_all(ekf_class_driver, msg_driver, ekf_class_passenger, msg_
     #     A = 360 - A
     aoa_final = A
     # print("Driver AoA = {} / Passenger AoA = {}".format(msg_driver.aoa, (msg_passenger.aoa )))
-    print("A = {} / AoA Final: {}".format(A, aoa_final))
+    # print("A = {} / AoA Final: {}".format(A, aoa_final))
     msg_localization = CustomMsg_Ranging()
     # msg_localization.distance = predict_distance_driver * 1.3
     msg_localization.distance = np.sqrt(xc**2 + yc**2)
