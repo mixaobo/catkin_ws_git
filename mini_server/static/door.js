@@ -242,4 +242,4 @@ function animateDoorColor(doorModel, color) {
 }
 
 // Poll the server for door status updates (once per second is sufficient for door status)
-setInterval(fetchDoorStatus, ( 288 ) );
+setInterval(fetchDoorStatus, ( 288 * 2 ) );

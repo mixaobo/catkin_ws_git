@@ -79,21 +79,24 @@ def start_node_ethernet():
                                 try:
                                     CurrentSystemTime = rospy.Time.now()
                                     ID = line.decode('utf-8').strip().split('/')[0]
-                                    parsed_data = parse_string_data(line.decode('utf-8').strip())
+                                    print(line.decode('utf-8').strip().split('/'))
+                                    temp_data = (line.decode('utf-8').strip().split('/'))
                                     if(float(ID) == 4.0):
-                                        print(parsed_data)
-                                        if parsed_data:
-                                            # Log out the system_time for manual checking
-                                            #rospy.loginfo("Time received from {}: {}".format(addr, parsed_data.get('system_time')))
-                                            
-                                            # Create and publish the ROS message
-                                            ranging_msg = populate_message(CustomMsg_Ranging, parsed_data)
-                                            
-                                            # Get the HPC system time (nanoseconds since epoch uint64)
-                                            ranging_msg.hpc_system_time = CurrentSystemTime.to_nsec()
-                                            
-                                            ranging_pub.publish(ranging_msg)
-                                            #rospy.loginfo("Published ranging message: \n{}".format(ranging_msg))
+                                        parsed_data = CustomMsg_Ranging()
+                                    
+                                        parsed_data.ble_status = "Connected"
+                                        parsed_data.anchor_system_time = int(temp_data[-3])
+                                        parsed_data.anchor_received_time = int(temp_data[-1])
+                                        parsed_data.firstPath_power = float(temp_data[-8])
+                                        parsed_data.aoa = float(temp_data[-7])
+                                        parsed_data.distance = float(temp_data[-5])
+                                        parsed_data.hpc_system_time = CurrentSystemTime.to_nsec()
+                                        # Create and publish the ROS message
+                                        #ranging_msg = populate_message(CustomMsg_Ranging, parsed_data)
+                                        ranging_pub.publish(parsed_data)
+                                        # print("Published ranging message: \n{}".format(parsed_data))
+                                        print("Published ranging AOA: \n{}".format(parsed_data.aoa))
+                                        print("Published ranging Distance: \n{}".format(parsed_data.distance))
                                     elif(float(ID) == 5.0):
                                         pass
                                 except:

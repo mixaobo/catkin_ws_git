@@ -18,8 +18,8 @@ def parse_string_data(data):
         print(fields)
         parsed_data = {
             'ble_status': "Connected",
-            'system_time': fields[-3],
-            'received_time': fields[-1],
+            'anchor_system_time': fields[-3],
+            'anchor_received_time': fields[-1],
             'firstPath_power': float(fields[-8]),
             'aoa': float(fields[-7]),
             'distance': float(fields[-5])
@@ -76,9 +76,8 @@ def start_node_ethernet():
                                 line, buffer = buffer.split(b'\n', 1)
                                 if not line:
                                     continue  # Skip empty lines
-
                                 try:
-                                    rospy.loginfo("Received string data from {}: {}".format(addr, line))
+                                    CurrentSystemTime = rospy.Time.now()
                                     ID = line.decode('utf-8').strip().split('/')[0]
                                     print(line.decode('utf-8').strip().split('/'))
                                     temp_data = (line.decode('utf-8').strip().split('/'))
@@ -86,16 +85,18 @@ def start_node_ethernet():
                                         parsed_data = CustomMsg_Ranging()
                                     
                                         parsed_data.ble_status = "Connected"
-                                        parsed_data.system_time = int(temp_data[-3])
-                                        parsed_data.received_time = int(temp_data[-1])
+                                        parsed_data.anchor_system_time = int(temp_data[-3])
+                                        parsed_data.anchor_received_time = int(temp_data[-1])
                                         parsed_data.firstPath_power = float(temp_data[-8])
                                         parsed_data.aoa = float(temp_data[-7])
                                         parsed_data.distance = float(temp_data[-5])
-                
+                                        parsed_data.hpc_system_time = CurrentSystemTime.to_nsec()
                                         # Create and publish the ROS message
-                                        ranging_msg = populate_message(CustomMsg_Ranging, parsed_data)
+                                        #ranging_msg = populate_message(CustomMsg_Ranging, parsed_data)
                                         ranging_pub.publish(parsed_data)
-                                        rospy.loginfo("Published ranging message: \n{}".format(ranging_msg))
+                                        #rospy.loginfo("Published ranging message: \n{}".format(ranging_msg))
+                                        print("Published ranging AOA: \n{}".format(parsed_data.aoa))
+                                        print("Published ranging Distance: \n{}".format(parsed_data.distance))
                                     elif(float(ID) == 5.0):
                                         pass
                                 except:

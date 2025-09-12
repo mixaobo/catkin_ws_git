@@ -452,4 +452,4 @@ async function fetchConnectionStatus() {
 }
 
 // Poll the server for connection status updates (once per second is sufficient for door status)
-setInterval(fetchConnectionStatus, ( 288 ) );
+setInterval(fetchConnectionStatus, ( 288 * 2 ) );

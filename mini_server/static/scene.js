@@ -28,7 +28,7 @@ class SceneManager {
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.05;
-        this.controls.enableZoom = false;
+        this.controls.enableZoom = true;
         this.controls.enablePan = false;
 
         // Setup lighting

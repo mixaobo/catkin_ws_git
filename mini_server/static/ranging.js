@@ -44,4 +44,4 @@ async function fetchRangingStatus() {
 
 
 // Poll the server for ranging status updates
-setInterval(fetchRangingStatus, ( 288 / 2 ) );
+setInterval(fetchRangingStatus, ( 288 ) );

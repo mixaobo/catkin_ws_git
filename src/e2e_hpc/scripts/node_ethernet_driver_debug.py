@@ -74,18 +74,39 @@ def start_node_ethernet():
                         data = conn.recv(1024)  # Buffer size is 1024 bytes
 
                         if data:
-                            #rospy.loginfo("Time received from {}: {}".format(addr, parsed_data.get('system_time')))
-                            # Create and publish the ROS message
-                            ranging_msg = CustomMsg_Ranging()
-                            ranging_msg.hpc_system_time = rospy.Time.now().to_nsec()
-                            ranging_msg.distance = counter
-                            ranging_msg.aoa = counter
-                            print("publish to localization node")
-                            ranging_pub.publish(ranging_msg)
-                            counter += 5
-                            
+                            buffer += data  # Append received data to buffer
+                            # Process all complete lines in the buffer
+                            while b'\n' in buffer:
+                                line, buffer = buffer.split(b'\n', 1)
+                                if not line:
+                                    continue  # Skip empty lines
+
+                                try:
+                                    rospy.loginfo("Received string data from {}: {}".format(addr, line))
+                                    ID = line.decode('utf-8').strip().split('/')[0]
+                                    print(line.decode('utf-8').strip().split('/'))
+                                    temp_data = (line.decode('utf-8').strip().split('/'))
+                                    if(float(ID) == 4.0):
+                                        parsed_data = CustomMsg_Ranging()
+                                    
+                                        parsed_data.ble_status = "Connected"
+                                        parsed_data.system_time = int(temp_data[-3])
+                                        parsed_data.received_time = int(temp_data[-1])
+                                        parsed_data.firstPath_power = float(temp_data[-8])
+                                        parsed_data.aoa = float(temp_data[-7])
+                                        parsed_data.distance = float(temp_data[-5])
+                                        ranging_msg.hpc_system_time = rospy.Time.now().to_nsec()
+                                        # Create and publish the ROS message
+                                        ranging_msg = populate_message(CustomMsg_Ranging, parsed_data)
+                                        ranging_pub.publish(parsed_data)
+                                        rospy.loginfo("Published ranging message: \n{}".format(ranging_msg))
+                                    elif(float(ID) == 5.0):
+                                        pass
+                                except:
+                                    pass
                         else:
-                            
+                            pass
+                                
                         #if not data:
                             
                             rospy.loginfo("Connection closed by client")

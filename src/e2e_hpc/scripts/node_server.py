@@ -8,7 +8,7 @@ import requests
 from e2e_hpc.msg import CustomMsg_Ranging  # Adjust if needed
 from e2e_hpc.msg import CustomMsg_Door  # Replace with your actual vehicle status msg
 
-HOST = '192.168.8.184' # server IP address
+HOST = '127.0.0.1' # server IP address
 PORT = 80            # server port
 
 latest_localization = None
@@ -36,9 +36,9 @@ def make_payload(alive_counter):
     payload = {
         "-": alive_counter,
         "Connection": {
-            "VehicleStatus": getattr(veh, "status", "Unknown") if veh else "Unknown",
+            "VehicleStatus": "Awake", #getattr(veh, "status", "Unknown") if veh else "Awake",
             "BleStatus": getattr(veh, "ble_status", "Unknown") if veh else "Unknown",
-            "UwbStatus": getattr(veh, "uwb_status", "Ranging") if veh else "Ranging",
+            "UwbStatus": "Ranging", #getattr(veh, "uwb_status", "Ranging") if veh else "Ranging",
         },
         "Door": {
             "FrontLeft": ["close", "lock"],   # Fill with actual data if available
@@ -66,7 +66,7 @@ def sender_thread():
         payload = make_payload(alive_counter)
         try:
             response = requests.post(url="http://{}:{}/api/".format(HOST, PORT), json=payload)
-            #print("Alive Counter: {} | Response: {} | Payload: {}".format(alive_counter, response.status_code, payload))
+            print("Alive Counter: {} | Response: {} | Payload: {}".format(alive_counter, response.status_code, payload))
         except requests.RequestException as e:
             print("Failed to send payload: {}".format(e))
         alive_counter += 1
@@ -75,6 +75,8 @@ def sender_thread():
 def node_server():
     rospy.init_node('node_server', anonymous=True)
     rospy.Subscriber('topic_Localization_Driver', CustomMsg_Ranging, localization_callback)
+    rospy.Subscriber('topic_Localization_Passenger', CustomMsg_Ranging, localization_callback)
+    rospy.Subscriber('topic_Localization', CustomMsg_Ranging, localization_callback)
     rospy.Subscriber('topic_Vehicle', CustomMsg_Door, vehicle_callback)
     thread = threading.Thread(target=sender_thread)
     thread.daemon = True

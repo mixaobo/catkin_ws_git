@@ -14,7 +14,7 @@ class UserModelManager {
         // [+] Higher values make the user appear further away
         // [+] Lower values make them appear closer
         // [+] 1 is exact scale, no adjustments
-        this.scale = 1;
+        this.scale = 2;
 
         // User model container
         this.model = null;
@@ -658,4 +658,4 @@ async function fetchUserStatus() {
 }
 
 // Poll the server for user data updates
-setInterval(fetchUserStatus, ( 288 / 2 ) );
+setInterval(fetchUserStatus, ( 288 ) );
