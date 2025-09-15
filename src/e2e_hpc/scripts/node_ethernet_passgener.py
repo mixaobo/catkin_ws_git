@@ -2,11 +2,29 @@
 import socket
 import rospy
 import time
+import os
+import csv
 from e2e_hpc.msg import CustomMsg_Ranging
 
 # Configuration for the TCP server
 HOST = '192.168.8.70' # anchor IP address (change to the 2nd anchor IP)
 PORT = 101      # Port 
+
+
+def append2Csv(filename, distance, aoa):
+    file_exist = os.path.exists(filename)
+
+    try:
+        with open(filename, mode='a', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file)
+            
+            if not file_exist:
+                writer.writerow(['distance', 'aoa'])
+            
+            writer.writerow([distance, aoa])
+    except Exception as e:
+        print(f"Error while appending to csv: {e}")
+
 
 def parse_string_data(data):
     """
@@ -91,12 +109,13 @@ def start_node_ethernet():
                                         parsed_data.aoa = float(temp_data[-7])
                                         parsed_data.distance = float(temp_data[-5])
                                         parsed_data.hpc_system_time = CurrentSystemTime.to_nsec()
+
                                         # Create and publish the ROS message
                                         #ranging_msg = populate_message(CustomMsg_Ranging, parsed_data)
+                                        print(f"[i] Passenger anchor value:     d = {parsed_data.distance} cm --- | ---  aoa = {parsed_data.aoa}\n")
+                                        append2Csv("passenger_data.csv", parsed_data.distance, parsed_data.aoa)
                                         ranging_pub.publish(parsed_data)
                                         #rospy.loginfo("Published ranging message: \n{}".format(ranging_msg))
-                                        print("Published ranging AOA: \n{}".format(parsed_data.aoa))
-                                        print("Published ranging Distance: \n{}".format(parsed_data.distance))
                                     elif(float(ID) == 5.0):
                                         pass
                                 except:

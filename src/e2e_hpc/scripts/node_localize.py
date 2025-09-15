@@ -3,12 +3,27 @@ import rospy
 import threading
 import threading
 import numpy as np
+import os
+import csv
 from e2e_hpc.msg import CustomMsg_Ranging
 from e2e_hpc.msg import CustomMsg_RSSI
 
 
 
 
+def append2Csv(filename, distance, aoa):
+    file_exist = os.path.exists(filename)
+
+    try:
+        with open(filename, mode='a', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file)
+            
+            if not file_exist:
+                writer.writerow(['distance', 'aoa'])
+            
+            writer.writerow([distance, aoa])
+    except Exception as e:
+        print(f"Error while appending to csv: {e}")
 
 
 """
@@ -142,20 +157,20 @@ def Ranging_callback(ekf_class, msg, publish_to_node):
     #print("------------")    
 
 A_old = 0
-B = 0
+aoa_system = 0
 A = 0
 counter = 0
 predict_distance_driver_old = 0
 predict_distance_passenger_old = 0
 
 def Ranging_callback_all(ekf_class_driver, msg_driver, ekf_class_passenger, msg_passenger , publish_to_node):
-    global A_old, B, A, counter,predict_distance_driver_old , predict_distance_passanger_old
+    global A_old, aoa_system, A, counter,predict_distance_driver_old , predict_distance_passanger_old
     aoa_median = 0
     aoa_final = 0
-    d_anchor = 16 #change later
+
+    d_anchor = 100 #change later
     # driver 
     print("-------------------------------")
-    print("Driver value: {} / {}".format(msg_driver.distance, msg_driver.aoa))
     predict_distance_driver = msg_driver.distance
     predict_angle_driver = msg_driver.aoa
     # time_driver = msg_driver.hpc_system_time
@@ -167,7 +182,6 @@ def Ranging_callback_all(ekf_class_driver, msg_driver, ekf_class_passenger, msg_
 
 
     #passenger
-    print("Passenger value: {} / {}".format(msg_driver.distance, msg_driver.aoa))
     predict_distance_passenger = msg_passenger.distance
     predict_angle_passenger = msg_passenger.aoa
     # time_passenger = msg_passenger.hpc_system_time
@@ -192,29 +206,29 @@ def Ranging_callback_all(ekf_class_driver, msg_driver, ekf_class_passenger, msg_
     # calculate = (((np.round(predict_distance_passenger)) **2) + (d_anchor **2) - ((np.round(predict_distance_driver)) **2)) / (2 * (np.round(predict_distance_passenger)) * d_anchor)
     #print("Driver Distance = {} / Passenger Distance = {} / calcualte = {}".format(predict_distance_driver, predict_distance_passenger,calculate))
     
-    calculate = (np.round(predict_distance_driver)**2 + d_anchor**2 - np.round(predict_distance_passenger)**2) / np.round(2 * predict_distance_passenger * predict_distance_driver)
+    cos_driver = (predict_distance_driver**2 + d_anchor**2 - predict_distance_passenger**2) / (2 * predict_distance_passenger * predict_distance_driver)
 
-    if (calculate > 1):
-        calculate = 1
-    elif (calculate < -1):
-        calculate = -1
+    if (cos_driver > 1):
+        cos_driver = 1
+    elif (cos_driver < -1):
+        cos_driver = -1
     # if (predict_angle_driver > 0)
     # B = np.acos(calculate)*180/np.pi#print("B: {}".format(B))
-    calculate_sin = np.sqrt(1 - calculate**2)
+    sine_driver = np.sqrt(1 - cos_driver**2)
 
-    xc = predict_distance_driver * calculate - d_anchor / 2
-    yc = predict_distance_driver * calculate_sin
+    xc = predict_distance_driver * cos_driver - d_anchor / 2
+    yc = predict_distance_driver * sine_driver
 
-    B = np.degrees(np.atan2(yc, xc))
+    aoa_system = np.degrees(np.atan2(yc, xc))
     
     
     if(counter < 5):
-        A = B*0.2 + (A_old * 0.8) #Low pass filter
+        A = aoa_system*0.2 + (A_old * 0.8) #Low pass filter
     else:
-        if(abs(B - A_old)> 60):
+        if(abs(aoa_system - A_old)> 60):
             A = A_old
         else:
-            A = B*0.2 + (A_old * 0.8) #Low pass filter
+            A = aoa_system*0.2 + (A_old * 0.8) #Low pass filter
 
     
     counter +=1
@@ -228,8 +242,14 @@ def Ranging_callback_all(ekf_class_driver, msg_driver, ekf_class_passenger, msg_
     msg_localization = CustomMsg_Ranging()
     # msg_localization.distance = predict_distance_driver * 1.3
     msg_localization.distance = np.sqrt(xc**2 + yc**2)
-    msg_localization.aoa = B
-    print(f"d = {msg_localization.distance} --- | --- aoa = {msg_localization.aoa}")
+    msg_localization.aoa = aoa_system
+
+
+    print(
+        f"[i] Driver anchor value:        d = {predict_distance_driver} cm --- | ---  aoa = {predict_angle_driver}\n" +
+        f"[i] Passenger anchor value:     d = {predict_distance_passenger} cm --- | ---  aoa = {predict_angle_passenger}\n" +
+        f"[i] System calculated value:    d = {msg_localization.distance} cm --- | --- aoa = {msg_localization.aoa} degree\n"
+    )
     publish_to_node.publish(msg_localization)  
     #print("Kalman output {} / {} / timestamp".format(predict_distance_driver, aoa_final))
     #print("------------") 
@@ -275,17 +295,17 @@ counter_passenger = 0
 current_aoa_passenger = 0.0
 previous_aoa_passenger = 0.0
 def Ranging_Passenger_callback(msg):
-    global RangingMsg_Passenger, counter_passenger, current_aoa_passenger, previous_aoa_passener, ekf_passenger
+    global RangingMsg_Passenger, counter_passenger, current_aoa_passenger, previous_aoa_passenger, ekf_passenger
     ##print("Passenger received value  {} / {}".format(msg.distance, msg.aoa))
     current_aoa_passenger = msg.aoa
     if (counter_passenger >= 5):
         if(counter_passenger == 5):
-            previous_aoa_passener = current_aoa_passenger
+            previous_aoa_passenger = current_aoa_passenger
             ekf_passenger = ExtendedKalmanFilter(
-            x_init=[msg.distance, current_aoa_passenger],
-            P_init=np.eye(2) * 100,
-            Q=np.eye(2) * 5.0,
-            R=np.diag([10, np.deg2rad(3.0)**2]) #(cm, aoa)
+                x_init=[msg.distance, current_aoa_passenger],
+                P_init=np.eye(2) * 100,
+                Q=np.eye(2) * 5.0,
+                R=np.diag([10, np.deg2rad(3.0)**2]) #(cm, aoa)
             )
         counter_passenger = 11
         # if (previous_aoa_passener >= 50):
@@ -300,11 +320,11 @@ def Ranging_Passenger_callback(msg):
         predict_distance_passenger, a = ekf_passenger.current_position()
         msg.distance = predict_distance_passenger
         #print("Passenger AoA: {}".format(msg.aoa))
-        predict_angle_passenger = current_aoa_passenger*0.2 + (previous_aoa_passener * 0.8) #Low pass filter
+        predict_angle_passenger = current_aoa_passenger*0.2 + (previous_aoa_passenger * 0.8) #Low pass filter
         # if (np.abs(predict_angle_passenger) > 30):
         #     msg.aoa = previous_aoa_passener   
         # else:
-        previous_aoa_passener = predict_angle_passenger
+        previous_aoa_passenger = predict_angle_passenger
             
         with threading_lock:
             RangingMsg_Passenger = msg
@@ -322,10 +342,10 @@ def Ranging_Driver_callback(msg):
         if(counter_driver == 5):
             previous_aoa_driver = current_aoa_driver
             ekf_driver = ExtendedKalmanFilter(
-            x_init=[msg.distance, current_aoa_driver],
-            P_init=np.eye(2) * 100,
-            Q=np.eye(2) * 5.0,
-            R=np.diag([10, np.deg2rad(3.0)**2]) #(cm, aoa)
+                x_init=[msg.distance, current_aoa_driver],
+                P_init=np.eye(2) * 100,
+                Q=np.eye(2) * 5.0,
+                R=np.diag([10, np.deg2rad(3.0)**2]) #(cm, aoa)
             )
         counter_driver = 11
         # if (previous_aoa_driver >= 50):
@@ -388,7 +408,6 @@ def Node_Ranging():
     global pub_Localization_Driver, pub_Localization_Passenger, pub_Localization
     #Initialize
     rospy.init_node('node_Ranging', anonymous=True)
-    rospy.init_node('node_Ranging', anonymous=True)
 
     #Publish to
     pub_Localization = rospy.Publisher('topic_Localization', CustomMsg_Ranging, queue_size=10)
@@ -399,11 +418,7 @@ def Node_Ranging():
     rospy.Subscriber('topic_Ranging_Driver', CustomMsg_Ranging, Ranging_Driver_callback)
     rospy.Subscriber('topic_Ranging_Passenger', CustomMsg_Ranging, Ranging_Passenger_callback)
 
-    # Start a background thread to keep the node alive
-    bg_thread = threading.Thread(target=background_thread)
-    bg_thread.daemon = True
-    bg_thread.start()
-    rospy.Subscriber('topic_Ranging_Passenger', CustomMsg_Ranging, Ranging_Passenger_callback)
+
 
     # Start a background thread to keep the node alive
     bg_thread = threading.Thread(target=background_thread)
