@@ -375,14 +375,21 @@ def background_thread():
     global ekf_driver, ekf_passenger, pub_Localization, pub_Localization_Driver, pub_Localization_Passenger, RangingMsg_Driver, RangingMsg_Passenger
 
     while not rospy.is_shutdown():
-        
-        if((RangingMsg_Driver_Event.wait(timeout=0.002) == True) and (RangingMsg_Passenger_Event.wait(timeout=0.002) == True)):
+        driver_ready = RangingMsg_Driver_Event.wait(timeout=0.002)
+        passenger_ready = RangingMsg_Passenger_Event.wait(timeout=0.002)
+
+        if driver_ready and passenger_ready:
             with threading_lock:
-                
-                #print("Ranging callback all")
-                
                 Ranging_callback_all(ekf_driver, RangingMsg_Driver, ekf_passenger, RangingMsg_Passenger, pub_Localization)
                 RangingMsg_Driver_Event.clear()
+                RangingMsg_Passenger_Event.clear()
+        elif driver_ready:
+            with threading_lock:
+                Ranging_callback(ekf_driver, RangingMsg_Driver, pub_Localization_Driver)
+                RangingMsg_Driver_Event.clear()
+        elif passenger_ready:
+            with threading_lock:
+                Ranging_callback(ekf_passenger, RangingMsg_Passenger, pub_Localization_Passenger)
                 RangingMsg_Passenger_Event.clear()
         else:
             pass
@@ -399,7 +406,6 @@ def background_thread():
             #         RangingMsg_Passenger_Event.clear()
         if rospy.is_shutdown():
             break
-        
             
         
         
